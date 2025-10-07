@@ -36,7 +36,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  pull-requests: read # allows SonarCloud to decorate PRs with analysis results
+  pull-requests: read
 
 jobs:
   sonar-check:
@@ -59,10 +59,12 @@ jobs:
           /k:"Sane4ka126_NetSdrClient-2-" `
           /o:"sane4ka126" `
           /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
-          /d:sonar.cs.opencover.reportsPaths="**/coverage.xml" `
+          /d:sonar.host.url="https://sonarcloud.io" `
+          /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage.xml" `
           /d:sonar.cpd.cs.minimumTokens=40 `
           /d:sonar.cpd.cs.minimumLines=5 `
-          /d:sonar.exclusions=**/bin/**,**/obj/**,**/sonarcloud.yml `
+          /d:sonar.exclusions=**/bin/**,**/obj/**,**/*.yml `
+          /d:sonar.coverage.exclusions=**/*Tests.cs,**/Program.cs `
           /d:sonar.qualitygate.wait=true
         shell: pwsh
       
@@ -77,11 +79,22 @@ jobs:
         run: |
           dotnet test NetSdrClientAppTests/NetSdrClientAppTests.csproj -c Release --no-build `
             /p:CollectCoverage=true `
-            /p:CoverletOutput=TestResults/coverage.xml `
-            /p:CoverletOutputFormat=opencover
+            /p:CoverletOutput=TestResults/ `
+            /p:CoverletOutputFormat=opencover `
+            /p:Exclude="[*Tests]*%2c[NUnit*]*%2c[xunit*]*"
         shell: pwsh
+      
+      # Optional: Display coverage report location
+      - name: Display coverage info
+        run: |
+          Write-Host "Coverage report generated at:"
+          Get-ChildItem -Path . -Filter "coverage.xml" -Recurse | Select-Object FullName
+        shell: pwsh
+        continue-on-error: true
       
       # 3) END: SonarScanner
       - name: SonarScanner End
         run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
