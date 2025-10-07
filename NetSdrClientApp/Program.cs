@@ -1,9 +1,11 @@
-﻿using NetSdrClientApp;
+using NetSdrClientApp;
 using NetSdrClientApp.Networking;
+using System;
+using System.Threading.Tasks;
 
 Console.WriteLine(@"Usage:
 C - connect
-D - disconnet
+D - disconnect
 F - set frequency
 S - Start/Stop IQ listener
 Q - quit");
@@ -22,7 +24,7 @@ while (true)
     }
     else if (key == ConsoleKey.D)
     {
-        netSdr.Disconect();
+        netSdr.Disconnect(); // Fixed from Disconect
     }
     else if (key == ConsoleKey.F)
     {
