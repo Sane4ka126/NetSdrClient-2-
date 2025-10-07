@@ -1,165 +1,358 @@
-﻿using NetSdrClientApp.Messages;
+using Moq;
+using NetSdrClientApp;
+using NetSdrClientApp.Messages;
 using NetSdrClientApp.Networking;
+using NUnit.Framework;
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
-using static NetSdrClientApp.Messages.NetSdrMessageHelper;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace NetSdrClientApp
+namespace NetSdrClientAppTests
 {
-    public class NetSdrClient
+    [TestFixture]
+    public class NetSdrClientExtendedTests
     {
-        private ITcpClient _tcpClient;
-        private IUdpClient _udpClient;
+        private Mock<ITcpClient> _mockTcpClient;
+        private Mock<IUdpClient> _mockUdpClient;
 
-        public bool IQStarted { get; set; }
-
-        public NetSdrClient(ITcpClient tcpClient, IUdpClient udpClient)
+        [SetUp]
+        public void Setup()
         {
-            _tcpClient = tcpClient;
-            _udpClient = udpClient;
-
-            _tcpClient.MessageReceived += _tcpClient_MessageReceived;
-            _udpClient.MessageReceived += _udpClient_MessageReceived;
+            _mockTcpClient = new Mock<ITcpClient>();
+            _mockUdpClient = new Mock<IUdpClient>();
         }
 
-        public async Task ConnectAsync()
+        [TearDown]
+        public void TearDown()
         {
-            if (!_tcpClient.Connected)
-            {
-                _tcpClient.Connect();
+            // Cleanup test file
+            if (File.Exists("samples.bin"))
+                File.Delete("samples.bin");
+        }
 
-                var sampleRate = BitConverter.GetBytes((long)100000).Take(5).ToArray();
-                var automaticFilterMode = BitConverter.GetBytes((ushort)0).ToArray();
-                var adMode = new byte[] { 0x00, 0x03 };
+        // Тест 1: ConnectAsync коли вже підключено - не надсилає повідомлення
+        [Test]
+        public async Task ConnectAsync_AlreadyConnected_DoesNotSendMessages()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
 
-                //Host pre setup
-                var msgs = new List<byte[]>
+            // Act
+            await client.ConnectAsync();
+
+            // Assert
+            _mockTcpClient.Verify(x => x.Connect(), Times.Never);
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
+        }
+
+        // Тест 2: ConnectAsync надсилає три повідомлення налаштування
+        [Test]
+        public async Task ConnectAsync_NotConnected_SendsThreeSetupMessages()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(false);
+
+            int messageCount = 0;
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback(() => 
                 {
-                    NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.IQOutputDataSampleRate, sampleRate),
-                    NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.RFFilter, automaticFilterMode),
-                    NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.ADModes, adMode),
-                };
+                    messageCount++;
+                    _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01, 0x02, 0x03 });
+                })
+                .Returns(Task.CompletedTask);
 
-                foreach (var msg in msgs)
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ConnectAsync();
+
+            // Assert
+            Assert.That(messageCount, Is.EqualTo(3));
+            _mockTcpClient.Verify(x => x.Connect(), Times.Once);
+        }
+
+        // Тест 3: StartIQAsync встановлює IQStarted і запускає UDP
+        [Test]
+        public async Task StartIQAsync_Connected_SetsIQStartedAndStartsUdp()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+            _mockUdpClient.Setup(x => x.StartListeningAsync()).Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            var sendTask = client.StartIQAsync();
+            _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01, 0x02, 0x03 });
+            await sendTask;
+
+            // Assert
+            Assert.That(client.IQStarted, Is.True);
+            _mockUdpClient.Verify(x => x.StartListeningAsync(), Times.Once);
+        }
+
+        // Тест 4: StartIQAsync без з'єднання не надсилає повідомлення
+        [Test]
+        public async Task StartIQAsync_NoConnection_DoesNothing()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(false);
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.StartIQAsync();
+
+            // Assert
+            Assert.That(client.IQStarted, Is.False);
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
+            _mockUdpClient.Verify(x => x.StartListeningAsync(), Times.Never);
+        }
+
+        // Тест 5: StopIQAsync зупиняє IQ і UDP
+        [Test]
+        public async Task StopIQAsync_Connected_StopsIQAndUdp()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+            client.IQStarted = true;
+
+            // Act
+            var sendTask = client.StopIQAsync();
+            _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01, 0x02, 0x03 });
+            await sendTask;
+
+            // Assert
+            Assert.That(client.IQStarted, Is.False);
+            _mockUdpClient.Verify(x => x.StopListening(), Times.Once);
+        }
+
+        // Тест 6: StopIQAsync без з'єднання
+        [Test]
+        public async Task StopIQAsync_NoConnection_DoesNotStopUdp()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(false);
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.StopIQAsync();
+
+            // Assert
+            _mockUdpClient.Verify(x => x.StopListening(), Times.Never);
+        }
+
+        // Тест 7: ChangeFrequencyAsync надсилає правильне повідомлення
+        [Test]
+        public async Task ChangeFrequencyAsync_Connected_SendsMessage()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+
+            byte[] sentMessage = null;
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback<byte[]>(msg => 
                 {
-                    await SendTcpRequest(msg);
-                }
-            }
+                    sentMessage = msg;
+                    _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01, 0x02 });
+                })
+                .Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ChangeFrequencyAsync(14250000, 0);
+
+            // Assert
+            Assert.That(sentMessage, Is.Not.Null);
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Once);
         }
 
-        public void Disconect()
+        // Тест 8: ChangeFrequencyAsync без з'єднання
+        [Test]
+        public async Task ChangeFrequencyAsync_NoConnection_DoesNotSend()
         {
-            _tcpClient.Disconnect();
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(false);
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ChangeFrequencyAsync(14250000, 0);
+
+            // Assert
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
         }
 
-        public async Task StartIQAsync()
+        // Тест 9: Disconnect викликає метод TCP клієнта
+        [Test]
+        public void Disconnect_CallsTcpClientDisconnect()
         {
-            if (!_tcpClient.Connected)
-            {
-                Console.WriteLine("No active connection.");
-                return;
-            }
+            // Arrange
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
 
-;           var iqDataMode = (byte)0x80;
-            var start = (byte)0x02;
-            var fifo16bitCaptureMode = (byte)0x01;
-            var n = (byte)1;
+            // Act
+            client.Disconect();
 
-            var args = new[] { iqDataMode, start, fifo16bitCaptureMode, n };
+            // Assert
+            _mockTcpClient.Verify(x => x.Disconnect(), Times.Once);
+        }
 
-            var msg = NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.ReceiverState, args);
+        // Тест 10: TCP MessageReceived обробляє відповідь
+        [Test]
+        public async Task TcpMessageReceived_CompletesResponseTask()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+
+            var responseBytes = new byte[] { 0xAA, 0xBB, 0xCC };
             
-            await SendTcpRequest(msg);
-
-            IQStarted = true;
-
-            _ = _udpClient.StartListeningAsync();
-        }
-
-        public async Task StopIQAsync()
-        {
-            if (!_tcpClient.Connected)
-            {
-                Console.WriteLine("No active connection.");
-                return;
-            }
-
-            var stop = (byte)0x01;
-
-            var args = new byte[] { 0, stop, 0, 0 };
-
-            var msg = NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.ReceiverState, args);
-
-            await SendTcpRequest(msg);
-
-            IQStarted = false;
-
-            _udpClient.StopListening();
-        }
-
-        public async Task ChangeFrequencyAsync(long hz, int channel)
-        {
-            var channelArg = (byte)channel;
-            var frequencyArg = BitConverter.GetBytes(hz).Take(5);
-            var args = new[] { channelArg }.Concat(frequencyArg).ToArray();
-
-            var msg = NetSdrMessageHelper.GetControlItemMessage(MsgTypes.SetControlItem, ControlItemCodes.ReceiverFrequency, args);
-
-            await SendTcpRequest(msg);
-        }
-
-        private void _udpClient_MessageReceived(object? sender, byte[] e)
-        {
-            NetSdrMessageHelper.TranslateMessage(e, out MsgTypes type, out ControlItemCodes code, out ushort sequenceNum, out byte[] body);
-            var samples = NetSdrMessageHelper.GetSamples(16, body);
-
-            Console.WriteLine($"Samples recieved: " + body.Select(b => Convert.ToString(b, toBase: 16)).Aggregate((l, r) => $"{l} {r}"));
-
-            using (FileStream fs = new FileStream("samples.bin", FileMode.Append, FileAccess.Write, FileShare.Read))
-            using (BinaryWriter sw = new BinaryWriter(fs))
-            {
-                foreach (var sample in samples)
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback<byte[]>(msg =>
                 {
-                    sw.Write((short)sample); //write 16 bit per sample as configured 
-                }
-            }
+                    Task.Run(() => _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, responseBytes));
+                })
+                .Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ChangeFrequencyAsync(100000, 0);
+
+            // Assert
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Once);
         }
 
-        private TaskCompletionSource<byte[]> responseTaskSource;
-
-        private async Task<byte[]> SendTcpRequest(byte[] msg)
+        // Тест 11: UDP MessageReceived обробляє дані
+        [Test]
+        public void UdpMessageReceived_ProcessesSamples_CreatesFile()
         {
-            if (!_tcpClient.Connected)
-            {
-                Console.WriteLine("No active connection.");
-                return null;
-            }
+            // Arrange
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
 
-            responseTaskSource = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var responseTask = responseTaskSource.Task;
+            var testData = new byte[] 
+            { 
+                0x04, 0x84, // Header
+                0x00, 0x00, // Sequence
+                0x01, 0x00, 0x02, 0x00, // Sample data
+                0x03, 0x00, 0x04, 0x00
+            };
 
-            await _tcpClient.SendMessageAsync(msg);
+            // Act
+            _mockUdpClient.Raise(x => x.MessageReceived += null, _mockUdpClient.Object, testData);
 
-            var resp = await responseTask;
-
-            return resp;
+            // Assert
+            Assert.That(File.Exists("samples.bin"), Is.True);
         }
 
-        private void _tcpClient_MessageReceived(object? sender, byte[] e)
+        // Тест 12: ChangeFrequencyAsync з різними каналами
+        [Test]
+        public async Task ChangeFrequencyAsync_DifferentChannel_SendsCorrectChannel()
         {
-            //TODO: add Unsolicited messages handling here
-            if (responseTaskSource != null)
-            {
-                responseTaskSource.SetResult(e);
-                responseTaskSource = null;
-            }
-            Console.WriteLine("Response recieved: " + e.Select(b => Convert.ToString(b, toBase: 16)).Aggregate((l, r) => $"{l} {r}"));
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+
+            byte[] sentMessage = null;
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback<byte[]>(msg => 
+                {
+                    sentMessage = msg;
+                    _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01 });
+                })
+                .Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ChangeFrequencyAsync(7100000, 1);
+
+            // Assert
+            Assert.That(sentMessage, Is.Not.Null);
+            Assert.That(sentMessage, Does.Contain((byte)1));
+        }
+
+        // Тест 13: IQStarted властивість за замовчуванням false
+        [Test]
+        public void IQStarted_DefaultValue_IsFalse()
+        {
+            // Arrange & Act
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Assert
+            Assert.That(client.IQStarted, Is.False);
+        }
+
+        // Тест 14: Множинні виклики StartIQAsync
+        [Test]
+        public async Task StartIQAsync_MultipleCalls_WorksCorrectly()
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback<byte[]>(msg =>
+                {
+                    _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01 });
+                })
+                .Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.StartIQAsync();
+            await client.StopIQAsync();
+            await client.StartIQAsync();
+
+            // Assert
+            Assert.That(client.IQStarted, Is.True);
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Exactly(3));
+        }
+
+        // Тест 15: ChangeFrequencyAsync з різними частотами
+        [Test]
+        [TestCase(7100000L, 0)]
+        [TestCase(14250000L, 0)]
+        [TestCase(21000000L, 1)]
+        [TestCase(28500000L, 1)]
+        public async Task ChangeFrequencyAsync_VariousFrequencies_SendsMessages(long frequency, int channel)
+        {
+            // Arrange
+            _mockTcpClient.Setup(x => x.Connected).Returns(true);
+            _mockTcpClient.Setup(x => x.SendMessageAsync(It.IsAny<byte[]>()))
+                .Callback<byte[]>(msg =>
+                {
+                    _mockTcpClient.Raise(x => x.MessageReceived += null, _mockTcpClient.Object, new byte[] { 0x01 });
+                })
+                .Returns(Task.CompletedTask);
+
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            await client.ChangeFrequencyAsync(frequency, channel);
+
+            // Assert
+            _mockTcpClient.Verify(x => x.SendMessageAsync(It.IsAny<byte[]>()), Times.Once);
+        }
+
+        // Тест 16: IQStarted можна встановити вручну
+        [Test]
+        public void IQStarted_CanBeSetManually()
+        {
+            // Arrange
+            var client = new NetSdrClient(_mockTcpClient.Object, _mockUdpClient.Object);
+
+            // Act
+            client.IQStarted = true;
+
+            // Assert
+            Assert.That(client.IQStarted, Is.True);
+
+            // Act
+            client.IQStarted = false;
+
+            // Assert
+            Assert.That(client.IQStarted, Is.False);
         }
     }
 }
