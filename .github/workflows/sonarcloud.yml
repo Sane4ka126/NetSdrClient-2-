@@ -25,7 +25,6 @@
 
 # Feel free to take a look at our documentation (https://docs.sonarcloud.io/getting-started/github/)
 # or reach out to our community forum if you need some help (https://community.sonarsource.com/c/help/sc/9) 
-
 name: SonarCloud analysis
 
 on:
@@ -36,7 +35,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  pull-requests: read # allows SonarCloud to decorate PRs with analysis results
+  pull-requests: read
 
 jobs:
   sonar-check:
@@ -50,7 +49,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       
-      # 1) BEGIN: SonarScanner for .NET
       - name: SonarScanner Begin
         run: |
           dotnet tool install --global dotnet-sonarscanner
@@ -66,7 +64,6 @@ jobs:
           /d:sonar.qualitygate.wait=true
         shell: pwsh
       
-      # 2) BUILD & TEST
       - name: Restore
         run: dotnet restore NetSdrClient.sln
       
@@ -81,7 +78,6 @@ jobs:
             /p:CoverletOutputFormat=opencover
         shell: pwsh
       
-      # 3) END: SonarScanner
       - name: SonarScanner End
         run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
         shell: pwsh
