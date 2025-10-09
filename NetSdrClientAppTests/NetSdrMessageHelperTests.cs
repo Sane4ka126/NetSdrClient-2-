@@ -31,11 +31,11 @@ namespace NetSdrClientAppTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Length.EqualTo(2)); // Fixed: Changed .Count() to Has.Length
+                Assert.That(headerBytes, Has.Count.EqualTo(2)); // Fixed: Changed Has.Length to Has.Count
                 Assert.That(msg.Length, Is.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
                 Assert.That(actualCode, Is.EqualTo((short)code));
-                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength)); // Fixed: Changed .Count() to Has.Length
+                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength)); // Fixed: Changed Has.Length to Has.Count
             });
         }
 
@@ -55,10 +55,10 @@ namespace NetSdrClientAppTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Length.EqualTo(2)); // Fixed: Changed .Count() to Has.Length
+                Assert.That(headerBytes, Has.Count.EqualTo(2)); // Fixed: Changed Has.Length to Has.Count
                 Assert.That(msg.Length, Is.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
-                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength)); // Fixed: Changed .Count() to Has.Length
+                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength)); // Fixed: Changed Has.Length to Has.Count
             });
         }
 
@@ -194,7 +194,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Count.EqualTo(0)); // Fixed: Changed Is.Empty to Has.Count.EqualTo(0)
+                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
             });
         }
 
@@ -230,7 +230,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Count.EqualTo(0)); // Fixed: Changed Is.Empty to Has.Count.EqualTo(0)
+                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
             });
         }
 
@@ -247,7 +247,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Count.EqualTo(0)); // Fixed: Changed Is.Empty to Has.Count.EqualTo(0)
+                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
             });
         }
 
@@ -266,7 +266,7 @@ namespace NetSdrClientAppTests
             {
                 Assert.That(success, Is.True);
                 Assert.That(parsedType, Is.EqualTo(type));
-                Assert.That(body, Has.Length.EqualTo(8190)); // Fixed: Changed .Length to Has.Length
+                Assert.That(body, Has.Length.EqualTo(8190)); // Already correct
             });
         }
 
@@ -281,7 +281,7 @@ namespace NetSdrClientAppTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(samples, Has.Count.EqualTo(4)); // Fixed: Changed .Count to Has.Count
+                Assert.That(samples, Has.Count.EqualTo(4));
                 Assert.That(samples[0], Is.EqualTo(1));
                 Assert.That(samples[1], Is.EqualTo(2));
                 Assert.That(samples[2], Is.EqualTo(3));
@@ -300,7 +300,7 @@ namespace NetSdrClientAppTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(samples, Has.Count.EqualTo(3)); // Fixed: Changed .Count to Has.Count
+                Assert.That(samples, Has.Count.EqualTo(3));
                 Assert.That(samples[0], Is.EqualTo(1));
                 Assert.That(samples[1], Is.EqualTo(2));
                 Assert.That(samples[2], Is.EqualTo(3));
@@ -316,7 +316,7 @@ namespace NetSdrClientAppTests
             // Act
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
             // Assert
-            Assert.That(samples, Has.Count.EqualTo(2)); // Fixed: Changed .Count to Has.Count
+            Assert.That(samples, Has.Count.EqualTo(2));
         }
 
         [Test]
@@ -330,7 +330,7 @@ namespace NetSdrClientAppTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(samples, Has.Count.EqualTo(2)); // Fixed: Changed .Count to Has.Count
+                Assert.That(samples, Has.Count.EqualTo(2));
                 Assert.That(samples[0], Is.EqualTo(1));
                 Assert.That(samples[1], Is.EqualTo(2));
             });
@@ -381,7 +381,7 @@ namespace NetSdrClientAppTests
             // Act
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
             // Assert
-            Assert.That(samples, Has.Count.EqualTo(2)); // Fixed: Changed .Count to Has.Count
+            Assert.That(samples, Has.Count.EqualTo(2));
         }
 
         [Test]
@@ -393,7 +393,7 @@ namespace NetSdrClientAppTests
             // Act
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
             // Assert
-            Assert.That(samples, Has.Count.EqualTo(0)); // Fixed: Changed Is.Empty to Has.Count.EqualTo(0)
+            Assert.That(samples, Has.Count.EqualTo(0));
         }
 
         [Test]
@@ -418,7 +418,7 @@ namespace NetSdrClientAppTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(msg, Is.Not.Null);
-                    Assert.That(msg, Has.Length.GreaterThan(0)); // Fixed: Changed .Length to Has.Length
+                    Assert.That(msg, Has.Length.GreaterThan(0));
                 });
             }
         }
@@ -442,7 +442,7 @@ namespace NetSdrClientAppTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(msg, Is.Not.Null);
-                    Assert.That(msg, Has.Length.GreaterThan(0)); // Fixed: Changed .Length to Has.Length
+                    Assert.That(msg, Has.Length.GreaterThan(0));
                 });
             }
         }
@@ -481,7 +481,7 @@ namespace NetSdrClientAppTests
             // Act
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
             // Assert
-            Assert.That(samples, Has.Count.EqualTo(500)); // Fixed: Changed .Count to Has.Count
+            Assert.That(samples, Has.Count.EqualTo(500));
         }
     }
 }
