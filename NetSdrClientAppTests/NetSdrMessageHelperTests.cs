@@ -18,21 +18,21 @@ namespace NetSdrClientAppTests
             int parametersLength = 7500;
             //Act
             byte[] msg = NetSdrMessageHelper.GetControlItemMessage(type, code, new byte[parametersLength]);
-            var headerBytes = msg.Take(2);
-            var codeBytes = msg.Skip(2).Take(2);
-            var parametersBytes = msg.Skip(4);
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
+            var headerBytes = msg.Take(2).ToArray();
+            var codeBytes = msg.Skip(2).Take(2).ToArray();
+            var parametersBytes = msg.Skip(4).ToArray();
+            var num = BitConverter.ToUInt16(headerBytes);
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
             var actualLength = num - ((int)actualType << 13);
-            var actualCode = BitConverter.ToInt16(codeBytes.ToArray());
+            var actualCode = BitConverter.ToInt16(codeBytes);
             //Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Count.EqualTo(2));
+                Assert.That(headerBytes, Has.Length.EqualTo(2));
                 Assert.That(msg, Has.Length.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
                 Assert.That(actualCode, Is.EqualTo((short)code));
-                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength));
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength));
             });
         }
 
@@ -44,18 +44,18 @@ namespace NetSdrClientAppTests
             int parametersLength = 7500;
             //Act
             byte[] msg = NetSdrMessageHelper.GetDataItemMessage(type, new byte[parametersLength]);
-            var headerBytes = msg.Take(2);
-            var parametersBytes = msg.Skip(2);
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
+            var headerBytes = msg.Take(2).ToArray();
+            var parametersBytes = msg.Skip(2).ToArray();
+            var num = BitConverter.ToUInt16(headerBytes);
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
             var actualLength = num - ((int)actualType << 13);
             //Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Count.EqualTo(2));
+                Assert.That(headerBytes, Has.Length.EqualTo(2));
                 Assert.That(msg, Has.Length.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
-                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength));
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength));
             });
         }
 
