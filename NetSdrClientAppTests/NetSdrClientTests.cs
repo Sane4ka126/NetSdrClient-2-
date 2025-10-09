@@ -208,7 +208,7 @@ public class NetSdrClientTests
     }
 
     [Test]
-    public async Task Constructor_SubscribesToEvents()
+    public void Constructor_SubscribesToEvents()
     {
         //Arrange & Act
         var tcpMock = new Mock<ITcpClient>();
