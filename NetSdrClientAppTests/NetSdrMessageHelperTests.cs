@@ -1,3 +1,4 @@
+```csharp
 using NetSdrClientApp.Messages;
 using NUnit.Framework;
 using System;
@@ -21,21 +22,21 @@ namespace NetSdrClientAppTests
             int parametersLength = 7500;
             // Act
             byte[] msg = NetSdrMessageHelper.GetControlItemMessage(type, code, new byte[parametersLength]);
-            var headerBytes = msg.Take(2);
+            var headerBytes = msg.Take(2).ToArray(); // Fixed: Materialize to array
             var codeBytes = msg.Skip(2).Take(2);
-            var parametersBytes = msg.Skip(4);
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
+            var parametersBytes = msg.Skip(4).ToArray(); // Fixed: Materialize to array
+            var num = BitConverter.ToUInt16(headerBytes);
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
             var actualLength = num - ((int)actualType << 13);
             var actualCode = BitConverter.ToInt16(codeBytes.ToArray());
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Count.EqualTo(2)); // Fixed: Changed Has.Length to Has.Count
+                Assert.That(headerBytes, Has.Length.EqualTo(2)); // Fixed: Use Has.Length for array
                 Assert.That(msg.Length, Is.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
                 Assert.That(actualCode, Is.EqualTo((short)code));
-                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength)); // Fixed: Changed Has.Length to Has.Count
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength)); // Fixed: Use Has.Length for array
             });
         }
 
@@ -47,18 +48,18 @@ namespace NetSdrClientAppTests
             int parametersLength = 7500;
             // Act
             byte[] msg = NetSdrMessageHelper.GetDataItemMessage(type, new byte[parametersLength]);
-            var headerBytes = msg.Take(2);
-            var parametersBytes = msg.Skip(2);
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
+            var headerBytes = msg.Take(2).ToArray(); // Fixed: Materialize to array
+            var parametersBytes = msg.Skip(2).ToArray(); // Fixed: Materialize to array
+            var num = BitConverter.ToUInt16(headerBytes);
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
             var actualLength = num - ((int)actualType << 13);
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(headerBytes, Has.Count.EqualTo(2)); // Fixed: Changed Has.Length to Has.Count
+                Assert.That(headerBytes, Has.Length.EqualTo(2)); // Fixed: Use Has.Length for array
                 Assert.That(msg.Length, Is.EqualTo(actualLength));
                 Assert.That(type, Is.EqualTo(actualType));
-                Assert.That(parametersBytes, Has.Count.EqualTo(parametersLength)); // Fixed: Changed Has.Length to Has.Count
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength)); // Fixed: Use Has.Length for array
             });
         }
 
@@ -73,7 +74,7 @@ namespace NetSdrClientAppTests
             {
                 var exception = Assert.Throws<ArgumentNullException>(() =>
                     NetSdrMessageHelper.GetControlItemMessage(type, code, null!));
-                Assert.That(exception.ParamName, Is.EqualTo("parameters"));
+                Assert.That(exception!.ParamName, Is.EqualTo("parameters")); // Fixed: Added null check
             });
         }
 
@@ -87,7 +88,7 @@ namespace NetSdrClientAppTests
             {
                 var exception = Assert.Throws<ArgumentNullException>(() =>
                     NetSdrMessageHelper.GetDataItemMessage(type, null!));
-                Assert.That(exception.ParamName, Is.EqualTo("parameters"));
+                Assert.That(exception!.ParamName, Is.EqualTo("parameters")); // Fixed: Added null check
             });
         }
 
@@ -103,7 +104,7 @@ namespace NetSdrClientAppTests
             {
                 var exception = Assert.Throws<ArgumentException>(() =>
                     NetSdrMessageHelper.GetControlItemMessage(type, code, parameters));
-                Assert.That(exception.ParamName, Is.EqualTo("msgLength"));
+                Assert.That(exception!.ParamName, Is.EqualTo("msgLength")); // Fixed: Added null check
             });
         }
 
@@ -178,7 +179,7 @@ namespace NetSdrClientAppTests
             {
                 var exception = Assert.Throws<ArgumentNullException>(() =>
                     NetSdrMessageHelper.TranslateMessage(null!, out _, out _, out _, out _));
-                Assert.That(exception.ParamName, Is.EqualTo("msg"));
+                Assert.That(exception!.ParamName, Is.EqualTo("msg")); // Fixed: Added null check
             });
         }
 
@@ -194,7 +195,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
+                Assert.That(body, Has.Length.EqualTo(0));
             });
         }
 
@@ -230,7 +231,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
+                Assert.That(body, Has.Length.EqualTo(0));
             });
         }
 
@@ -247,7 +248,7 @@ namespace NetSdrClientAppTests
             Assert.Multiple(() =>
             {
                 Assert.That(success, Is.False);
-                Assert.That(body, Has.Length.EqualTo(0)); // Fixed: Changed Has.Count to Has.Length
+                Assert.That(body, Has.Length.EqualTo(0));
             });
         }
 
@@ -266,7 +267,7 @@ namespace NetSdrClientAppTests
             {
                 Assert.That(success, Is.True);
                 Assert.That(parsedType, Is.EqualTo(type));
-                Assert.That(body, Has.Length.EqualTo(8190)); // Already correct
+                Assert.That(body, Has.Length.EqualTo(8190));
             });
         }
 
@@ -346,7 +347,7 @@ namespace NetSdrClientAppTests
             {
                 var exception = Assert.Throws<ArgumentNullException>(() =>
                     NetSdrMessageHelper.GetSamples(sampleSize, null!).ToList());
-                Assert.That(exception.ParamName, Is.EqualTo("body"));
+                Assert.That(exception!.ParamName, Is.EqualTo("body")); // Fixed: Added null check
             });
         }
 
