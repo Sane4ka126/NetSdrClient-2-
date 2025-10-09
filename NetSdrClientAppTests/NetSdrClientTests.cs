@@ -291,12 +291,19 @@ public class NetSdrClientTests
     }
 
     [Test]
-    public void UdpMessageReceived_TriggersHandler()
+    public void UdpMessageReceived_WithValidData_ProcessesSuccessfully()
     {
-        //Arrange
-        var testUdpData = new byte[] { 0x10, 0x20, 0x30, 0x40 };
+        //Arrange - Create a valid NetSDR UDP message
+        // NetSDR message format: [header][length][type][item][data]
+        // Minimum valid message with some data
+        var testUdpData = new byte[] 
+        { 
+            0x08, 0x00,  // Length = 8 bytes
+            0x84, 0x00,  // Message type (data packet)
+            0x01, 0x02, 0x03, 0x04  // Sample data
+        };
         
-        //Act & Assert - Should not throw when UDP message is received
+        //Act & Assert - Should handle the message without throwing
         Assert.DoesNotThrow(() =>
         {
             _udpMock.Raise(udp => udp.MessageReceived += null, _udpMock.Object, testUdpData);
@@ -444,5 +451,125 @@ public class NetSdrClientTests
         //Assert
         Assert.That(sentMessages.Count, Is.EqualTo(3));
         _tcpMock.Verify(tcp => tcp.Connect(), Times.Once);
+    }
+
+    [Test]
+    public async Task SendTcpRequest_WaitsForResponse()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        var responseReceived = false;
+        
+        _tcpMock.Setup(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()))
+            .Callback<byte[]>((msg) =>
+            {
+                // Simulate delayed response
+                Task.Run(async () =>
+                {
+                    await Task.Delay(10);
+                    _tcpMock.Raise(tcp => tcp.MessageReceived += null, _tcpMock.Object, msg);
+                    responseReceived = true;
+                });
+            });
+        
+        //Act
+        await _client.ChangeFrequencyAsync(14250000, 0);
+        
+        //Assert
+        Assert.That(responseReceived, Is.True);
+    }
+
+    [Test]
+    public async Task StartIQAsync_WithConnection_StartsUdpListening()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        
+        //Act
+        await _client.StartIQAsync();
+        
+        //Assert
+        _udpMock.Verify(udp => udp.StartListeningAsync(), Times.Once);
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.AtLeast(4));
+    }
+
+    [Test]
+    public async Task StopIQAsync_WithConnection_StopsUdpListening()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        await _client.StartIQAsync();
+        
+        //Act
+        await _client.StopIQAsync();
+        
+        //Assert
+        _udpMock.Verify(udp => udp.StopListening(), Times.Once);
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.AtLeast(5));
+    }
+
+    [Test]
+    public void TcpMessageReceived_MultipleMessages_HandlesSequentially()
+    {
+        //Arrange
+        var message1 = new byte[] { 0x01, 0x02 };
+        var message2 = new byte[] { 0x03, 0x04 };
+        var message3 = new byte[] { 0x05, 0x06 };
+        
+        //Act & Assert - Should handle multiple messages without errors
+        Assert.DoesNotThrow(() =>
+        {
+            _tcpMock.Raise(tcp => tcp.MessageReceived += null, _tcpMock.Object, message1);
+            _tcpMock.Raise(tcp => tcp.MessageReceived += null, _tcpMock.Object, message2);
+            _tcpMock.Raise(tcp => tcp.MessageReceived += null, _tcpMock.Object, message3);
+        });
+    }
+
+    [Test]
+    public async Task ChangeFrequencyAsync_WithZeroFrequency_SendsMessage()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        
+        //Act
+        await _client.ChangeFrequencyAsync(0, 0);
+        
+        //Assert
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.AtLeast(4));
+    }
+
+    [Test]
+    public async Task ChangeFrequencyAsync_WithLargeFrequency_SendsMessage()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        long largeFrequency = 999999999L;
+        
+        //Act
+        await _client.ChangeFrequencyAsync(largeFrequency, 0);
+        
+        //Assert
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.AtLeast(4));
+    }
+
+    [Test]
+    public async Task StartStopIQ_MultipleCycles_WorksCorrectly()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        
+        //Act & Assert - Multiple start/stop cycles
+        for (int i = 0; i < 3; i++)
+        {
+            await _client.StartIQAsync();
+            Assert.That(_client.IQStarted, Is.True);
+            
+            await _client.StopIQAsync();
+            Assert.That(_client.IQStarted, Is.False);
+        }
+        
+        //Assert
+        _udpMock.Verify(udp => udp.StartListeningAsync(), Times.Exactly(3));
+        _udpMock.Verify(udp => udp.StopListening(), Times.Exactly(3));
     }
 }
