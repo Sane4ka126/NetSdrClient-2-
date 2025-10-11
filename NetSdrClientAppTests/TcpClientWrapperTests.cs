@@ -15,9 +15,9 @@ namespace NetSdrClientApp.Tests.Networking
     [TestFixture]
     public class TcpClientWrapperTests
     {
-        private TcpListener _testServer;
+        private TcpListener? _testServer;
         private int _testPort;
-        private CancellationTokenSource _serverCts;
+        private CancellationTokenSource? _serverCts;
 
         [SetUp]
         public void SetUp()
@@ -32,8 +32,17 @@ namespace NetSdrClientApp.Tests.Networking
         public void TearDown()
         {
             _serverCts?.Cancel();
-            _testServer?.Stop();
             _serverCts?.Dispose();
+            _testServer?.Stop();
+            
+            // Явно dispose TcpListener для задоволення NUnit1032
+            if (_testServer is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+            
+            _testServer = null;
+            _serverCts = null;
         }
 
         private int GetAvailablePort()
@@ -70,8 +79,8 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task Connect_EstablishesConnection_WhenServerIsAvailable()
         {
             // Arrange
-            _testServer.Start();
-            var serverTask = AcceptClientAsync(_testServer, _serverCts.Token);
+            _testServer!.Start();
+            var serverTask = AcceptClientAsync(_testServer, _serverCts!.Token);
             var wrapper = new TcpClientWrapper("localhost", _testPort);
 
             // Act
@@ -90,8 +99,8 @@ namespace NetSdrClientApp.Tests.Networking
         public void Connect_DoesNothing_WhenAlreadyConnected()
         {
             // Arrange
-            _testServer.Start();
-            var serverTask = AcceptClientAsync(_testServer, _serverCts.Token);
+            _testServer!.Start();
+            var serverTask = AcceptClientAsync(_testServer, _serverCts!.Token);
             var wrapper = new TcpClientWrapper("localhost", _testPort);
             wrapper.Connect();
             Task.Delay(100).Wait();
