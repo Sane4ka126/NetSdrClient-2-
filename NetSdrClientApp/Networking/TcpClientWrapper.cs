@@ -103,7 +103,7 @@ namespace NetSdrClientApp.Networking
 
         private async Task StartListeningAsync()
         {
-            if (!Connected || _stream == null || !_stream.CanRead)
+            if (!Connected || _stream == null || !_stream.CanRead || _cts == null)
             {
                 throw new InvalidOperationException("Not connected to a server.");
             }
@@ -111,7 +111,7 @@ namespace NetSdrClientApp.Networking
             try
             {
                 Console.WriteLine($"Starting listening for incomming messages.");
-                while (_cts != null && !_cts.Token.IsCancellationRequested)
+                while (!_cts.Token.IsCancellationRequested)
                 {
                     byte[] buffer = new byte[8194];
                     int bytesRead = await _stream.ReadAsync(buffer.AsMemory(0, buffer.Length), _cts.Token);
@@ -135,3 +135,4 @@ namespace NetSdrClientApp.Networking
             }
         }
     }
+}
