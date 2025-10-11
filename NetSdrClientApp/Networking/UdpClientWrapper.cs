@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -31,13 +31,12 @@ public class UdpClientWrapper : IUdpClient
             {
                 UdpReceiveResult result = await _udpClient.ReceiveAsync(_cts.Token);
                 MessageReceived?.Invoke(this, result.Buffer);
-
                 Console.WriteLine($"Received from {result.RemoteEndPoint}");
             }
         }
-        catch (OperationCanceledException ex)
+        catch (OperationCanceledException)
         {
-            //empty
+            // Expected when cancellation is requested
         }
         catch (Exception ex)
         {
@@ -47,19 +46,15 @@ public class UdpClientWrapper : IUdpClient
 
     public void StopListening()
     {
-        try
-        {
-            _cts?.Cancel();
-            _udpClient?.Close();
-            Console.WriteLine("Stopped listening for UDP messages.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error while stopping: {ex.Message}");
-        }
+        CleanupResources();
     }
 
     public void Exit()
+    {
+        CleanupResources();
+    }
+
+    private void CleanupResources()
     {
         try
         {
