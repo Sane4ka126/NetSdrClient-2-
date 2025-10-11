@@ -45,7 +45,7 @@ namespace NetSdrClientApp.Tests.Networking
             _serverCts = null;
         }
 
-        private int GetAvailablePort()
+        private static int GetAvailablePort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
@@ -79,7 +79,8 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task Connect_EstablishesConnection_WhenServerIsAvailable()
         {
             // Arrange
-            _testServer!.Start();
+            Assert.That(_testServer, Is.Not.Null);
+            _testServer.Start();
             var serverTask = AcceptClientAsync(_testServer, _serverCts!.Token);
             var wrapper = new TcpClientWrapper("localhost", _testPort);
 
@@ -99,8 +100,10 @@ namespace NetSdrClientApp.Tests.Networking
         public void Connect_DoesNothing_WhenAlreadyConnected()
         {
             // Arrange
-            _testServer!.Start();
-            var serverTask = AcceptClientAsync(_testServer, _serverCts!.Token);
+            Assert.That(_testServer, Is.Not.Null);
+            Assert.That(_serverCts, Is.Not.Null);
+            _testServer.Start();
+            var serverTask = AcceptClientAsync(_testServer, _serverCts.Token);
             var wrapper = new TcpClientWrapper("localhost", _testPort);
             wrapper.Connect();
             Task.Delay(100).Wait();
@@ -133,6 +136,8 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task Disconnect_ClosesConnection_WhenConnected()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
+            Assert.That(_serverCts, Is.Not.Null);
             _testServer.Start();
             var serverTask = AcceptClientAsync(_testServer, _serverCts.Token);
             var wrapper = new TcpClientWrapper("localhost", _testPort);
@@ -161,6 +166,8 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task SendMessageAsync_ByteArray_SendsData_WhenConnected()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
+            Assert.That(_serverCts, Is.Not.Null);
             _testServer.Start();
             var receivedData = new TaskCompletionSource<byte[]>();
             var serverTask = AcceptAndReceiveAsync(_testServer, receivedData, _serverCts.Token);
@@ -186,6 +193,8 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task SendMessageAsync_String_SendsData_WhenConnected()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
+            Assert.That(_serverCts, Is.Not.Null);
             _testServer.Start();
             var receivedData = new TaskCompletionSource<byte[]>();
             var serverTask = AcceptAndReceiveAsync(_testServer, receivedData, _serverCts.Token);
@@ -238,10 +247,11 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task MessageReceived_Event_RaisedWhenDataReceived()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
             _testServer.Start();
             var wrapper = new TcpClientWrapper("localhost", _testPort);
             
-            byte[] receivedMessage = null;
+            byte[]? receivedMessage = null;
             var messageReceivedEvent = new TaskCompletionSource<bool>();
             
             wrapper.MessageReceived += (sender, data) =>
@@ -256,7 +266,7 @@ namespace NetSdrClientApp.Tests.Networking
                 await Task.Delay(200); // Даємо час клієнту підключитись
                 var stream = client.GetStream();
                 byte[] testData = new byte[] { 0xAA, 0xBB, 0xCC };
-                await stream.WriteAsync(testData, 0, testData.Length);
+                await stream.WriteAsync(testData.AsMemory(0, testData.Length));
                 await Task.Delay(100);
                 client.Close();
             });
@@ -278,6 +288,7 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task MultipleMessages_AreReceivedCorrectly()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
             _testServer.Start();
             var wrapper = new TcpClientWrapper("localhost", _testPort);
             
@@ -303,7 +314,7 @@ namespace NetSdrClientApp.Tests.Networking
                 for (int i = 1; i <= expectedMessages; i++)
                 {
                     byte[] testData = new byte[] { (byte)i };
-                    await stream.WriteAsync(testData, 0, testData.Length);
+                    await stream.WriteAsync(testData.AsMemory(0, testData.Length));
                     await Task.Delay(50);
                 }
                 
@@ -316,7 +327,7 @@ namespace NetSdrClientApp.Tests.Networking
             await Task.WhenAny(messageCount.Task, Task.Delay(3000));
 
             // Assert
-            Assert.That(messagesReceived.Count, Is.EqualTo(expectedMessages));
+            Assert.That(messagesReceived, Has.Count.EqualTo(expectedMessages));
 
             // Cleanup
             wrapper.Disconnect();
@@ -327,6 +338,7 @@ namespace NetSdrClientApp.Tests.Networking
         public async Task Disconnect_StopsListening()
         {
             // Arrange
+            Assert.That(_testServer, Is.Not.Null);
             _testServer.Start();
             var wrapper = new TcpClientWrapper("localhost", _testPort);
             bool messageReceived = false;
@@ -356,40 +368,43 @@ namespace NetSdrClientApp.Tests.Networking
             {
                 var stream = serverClient.GetStream();
                 byte[] data = new byte[] { 0x01 };
-                await stream.WriteAsync(data, 0, data.Length);
+                await stream.WriteAsync(data.AsMemory(0, data.Length));
             }
             catch { }
 
             await Task.Delay(200);
 
             // Assert
-            Assert.That(messageReceived, Is.False); // Не повинні отримати повідомлення після відключення
-            Assert.That(wrapper.Connected, Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(messageReceived, Is.False); // Не повинні отримати повідомлення після відключення
+                Assert.That(wrapper.Connected, Is.False);
+            });
 
             // Cleanup
             serverClient?.Close();
         }
 
         // Helper methods
-        private async Task AcceptClientAsync(TcpListener server, CancellationToken ct)
+        private static async Task AcceptClientAsync(TcpListener server, CancellationToken ct)
         {
             try
             {
-                var client = await server.AcceptTcpClientAsync();
+                var client = await server.AcceptTcpClientAsync(ct);
                 await Task.Delay(500, ct);
                 client.Close();
             }
             catch (OperationCanceledException) { }
         }
 
-        private async Task AcceptAndReceiveAsync(TcpListener server, TaskCompletionSource<byte[]> receivedData, CancellationToken ct)
+        private static async Task AcceptAndReceiveAsync(TcpListener server, TaskCompletionSource<byte[]> receivedData, CancellationToken ct)
         {
             try
             {
-                var client = await server.AcceptTcpClientAsync();
+                var client = await server.AcceptTcpClientAsync(ct);
                 var stream = client.GetStream();
                 byte[] buffer = new byte[1024];
-                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct);
+                int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
                 receivedData.SetResult(buffer.Take(bytesRead).ToArray());
                 await Task.Delay(100, ct);
                 client.Close();
