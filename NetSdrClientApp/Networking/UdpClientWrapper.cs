@@ -31,12 +31,13 @@ public class UdpClientWrapper : IUdpClient
             {
                 UdpReceiveResult result = await _udpClient.ReceiveAsync(_cts.Token);
                 MessageReceived?.Invoke(this, result.Buffer);
+
                 Console.WriteLine($"Received from {result.RemoteEndPoint}");
             }
         }
         catch (OperationCanceledException)
         {
-            // Expected when cancellation is requested
+            //empty
         }
         catch (Exception ex)
         {
