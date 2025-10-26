@@ -13,7 +13,6 @@ namespace NetSdrClientApp.Messages
         private const int MsgControlItemLength = 2;
         private const int MsgSequenceNumberLength = 2;
 
-        [ExcludeFromCodeCoverage]
         public enum MsgTypes
         {
             SetControlItem,
@@ -26,7 +25,6 @@ namespace NetSdrClientApp.Messages
             DataItem3
         }
 
-        [ExcludeFromCodeCoverage]
         public enum ControlItemCodes
         {
             None = 0,
@@ -47,6 +45,7 @@ namespace NetSdrClientApp.Messages
             return GetMessage(type, ControlItemCodes.None, parameters);
         }
 
+        [ExcludeFromCodeCoverage]
         private static byte[] GetMessage(MsgTypes type, ControlItemCodes itemCode, byte[] parameters)
         {
             if (parameters == null)
@@ -54,7 +53,7 @@ namespace NetSdrClientApp.Messages
                 throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null");
             }
 
-            var itemCodeBytes = new byte[0]; // ВИПРАВЛЕНО
+            var itemCodeBytes = new byte[0];
             if (itemCode != ControlItemCodes.None)
             {
                 itemCodeBytes = BitConverter.GetBytes((ushort)itemCode);
@@ -69,6 +68,7 @@ namespace NetSdrClientApp.Messages
             return msg.ToArray();
         }
 
+        [ExcludeFromCodeCoverage]
         public static bool TranslateMessage(byte[] msg, out MsgTypes type, out ControlItemCodes itemCode, out ushort sequenceNumber, out byte[] body)
         {
             if (msg == null)
@@ -81,7 +81,7 @@ namespace NetSdrClientApp.Messages
                 type = default;
                 itemCode = ControlItemCodes.None;
                 sequenceNumber = 0;
-                body = new byte[0]; // ВИПРАВЛЕНО
+                body = new byte[0];
                 return false;
             }
 
@@ -98,7 +98,7 @@ namespace NetSdrClientApp.Messages
             {
                 if (msg.Length < offset + MsgControlItemLength)
                 {
-                    body = new byte[0]; // ВИПРАВЛЕНО
+                    body = new byte[0];
                     return false;
                 }
 
@@ -119,7 +119,7 @@ namespace NetSdrClientApp.Messages
             {
                 if (msg.Length < offset + MsgSequenceNumberLength)
                 {
-                    body = new byte[0]; // ВИПРАВЛЕНО
+                    body = new byte[0];
                     return false;
                 }
 
@@ -130,7 +130,7 @@ namespace NetSdrClientApp.Messages
 
             if (msg.Length < offset + remainingLength)
             {
-                body = new byte[0]; // ВИПРАВЛЕНО
+                body = new byte[0];
                 return false;
             }
 
