@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace NetSdrClientApp.Messages
@@ -12,6 +13,7 @@ namespace NetSdrClientApp.Messages
         private const int MsgControlItemLength = 2;
         private const int MsgSequenceNumberLength = 2;
 
+        [ExcludeFromCodeCoverage]
         public enum MsgTypes
         {
             SetControlItem,
@@ -24,6 +26,7 @@ namespace NetSdrClientApp.Messages
             DataItem3
         }
 
+        [ExcludeFromCodeCoverage]
         public enum ControlItemCodes
         {
             None = 0,
@@ -62,6 +65,7 @@ namespace NetSdrClientApp.Messages
             msg.AddRange(headerBytes);
             msg.AddRange(itemCodeBytes);
             msg.AddRange(parameters);
+
             return msg.ToArray();
         }
 
@@ -86,6 +90,7 @@ namespace NetSdrClientApp.Messages
             bool success = true;
 
             TranslateHeader(msg.Take(MsgHeaderLength).ToArray(), out type, out int msgLength);
+
             int offset = MsgHeaderLength;
             int remainingLength = msgLength - MsgHeaderLength;
 
@@ -131,7 +136,7 @@ namespace NetSdrClientApp.Messages
 
             body = new byte[remainingLength];
             Array.Copy(msg, offset, body, 0, remainingLength);
-
+            
             success &= body.Length == remainingLength;
             return success;
         }
@@ -150,12 +155,11 @@ namespace NetSdrClientApp.Messages
             }
 
             int sampleSizeBytes = sampleSize / 8;
-
             if (sampleSizeBytes <= 0 || sampleSizeBytes > 4)
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(sampleSize),
-                    sampleSize,
+                    nameof(sampleSize), 
+                    sampleSize, 
                     "Sample size must be between 8 and 32 bits");
             }
         }
@@ -178,7 +182,6 @@ namespace NetSdrClientApp.Messages
         private static byte[] GetHeader(MsgTypes type, int msgLength)
         {
             int lengthWithHeader = msgLength + MsgHeaderLength;
-
             if (type >= MsgTypes.DataItem0 && lengthWithHeader == MaxDataItemMessageLength)
             {
                 lengthWithHeader = 0;
@@ -186,27 +189,4 @@ namespace NetSdrClientApp.Messages
 
             if (msgLength < 0 || lengthWithHeader > MaxMessageLength)
             {
-                throw new ArgumentException(
-                    $"Message length {msgLength} exceeds allowed value",
-                    nameof(msgLength));
-            }
-
-            return BitConverter.GetBytes((ushort)(lengthWithHeader + ((int)type << 13)));
-        }
-
-        private static void TranslateHeader(byte[] header, out MsgTypes type, out int msgLength)
-        {
-            var num = BitConverter.ToUInt16(header, 0);
-            type = (MsgTypes)(num >> 13);
-            msgLength = num - ((int)type << 13);
-
-            if (type >= MsgTypes.DataItem0 && msgLength == 0)
-            {
-                msgLength = MaxDataItemMessageLength;
-            }
-        }
-    }
-}
-
-
-
+                throw new ArgumentExc
