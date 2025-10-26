@@ -54,7 +54,7 @@ namespace NetSdrClientApp.Messages
                 throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null");
             }
 
-            var itemCodeBytes = Array.Empty<byte>();
+            var itemCodeBytes = new byte[0]; // ВИПРАВЛЕНО
             if (itemCode != ControlItemCodes.None)
             {
                 itemCodeBytes = BitConverter.GetBytes((ushort)itemCode);
@@ -81,7 +81,7 @@ namespace NetSdrClientApp.Messages
                 type = default;
                 itemCode = ControlItemCodes.None;
                 sequenceNumber = 0;
-                body = Array.Empty<byte>();
+                body = new byte[0]; // ВИПРАВЛЕНО
                 return false;
             }
 
@@ -98,7 +98,7 @@ namespace NetSdrClientApp.Messages
             {
                 if (msg.Length < offset + MsgControlItemLength)
                 {
-                    body = Array.Empty<byte>();
+                    body = new byte[0]; // ВИПРАВЛЕНО
                     return false;
                 }
 
@@ -119,7 +119,7 @@ namespace NetSdrClientApp.Messages
             {
                 if (msg.Length < offset + MsgSequenceNumberLength)
                 {
-                    body = Array.Empty<byte>();
+                    body = new byte[0]; // ВИПРАВЛЕНО
                     return false;
                 }
 
@@ -130,7 +130,7 @@ namespace NetSdrClientApp.Messages
 
             if (msg.Length < offset + remainingLength)
             {
-                body = Array.Empty<byte>();
+                body = new byte[0]; // ВИПРАВЛЕНО
                 return false;
             }
 
@@ -189,4 +189,24 @@ namespace NetSdrClientApp.Messages
 
             if (msgLength < 0 || lengthWithHeader > MaxMessageLength)
             {
-                throw new ArgumentExc
+                throw new ArgumentException(
+                    $"Message length {msgLength} exceeds allowed value", 
+                    nameof(msgLength));
+            }
+
+            return BitConverter.GetBytes((ushort)(lengthWithHeader + ((int)type << 13)));
+        }
+
+        private static void TranslateHeader(byte[] header, out MsgTypes type, out int msgLength)
+        {
+            var num = BitConverter.ToUInt16(header, 0);
+            type = (MsgTypes)(num >> 13);
+            msgLength = num - ((int)type << 13);
+
+            if (type >= MsgTypes.DataItem0 && msgLength == 0)
+            {
+                msgLength = MaxDataItemMessageLength;
+            }
+        }
+    }
+}
