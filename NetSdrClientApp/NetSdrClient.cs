@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using static NetSdrClientApp.Messages.NetSdrMessageHelper;
 using System.IO; 
 
-
 namespace NetSdrClientApp
 {
     public class NetSdrClient
@@ -174,16 +173,9 @@ namespace NetSdrClientApp
             }
             else
             {
-                // Обробка Unsolicited messages
-                if (type == MsgTypes.Notification) 
-                {
-                    Console.WriteLine($"Unsolicited NOTIFICATION received: Code={code}.");
-                }
-                else
-                {
-                    Console.WriteLine($"Unexpected TCP message (not response, not notification) recieved: Type={type}, Code={code}. Data: " 
-                                      + e.Select(b => Convert.ToString(b, toBase: 16)).Aggregate((l, r) => $"{l} {r}"));
-                }
+                // Обробка Unsolicited messages - видалено перевірку на MsgTypes.Notification
+                Console.WriteLine($"Unsolicited message received: Type={type}, Code={code}. Data: " 
+                                  + e.Select(b => Convert.ToString(b, toBase: 16)).Aggregate((l, r) => $"{l} {r}"));
             }
         }
     }
