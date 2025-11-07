@@ -34,7 +34,6 @@ namespace NetSdrClientApp.Networking
             }
 
             _tcpClient = new TcpClient();
-
             try
             {
                 _cts = new CancellationTokenSource();
@@ -93,7 +92,13 @@ namespace NetSdrClientApp.Networking
 
         private async Task SendDataAsync(byte[] data)
         {
-            await _stream!.WriteAsync(new ReadOnlyMemory<byte>(data), _cts?.Token ?? CancellationToken.None);
+            // ✅ Перевіряємо на null перед використанням
+            if (_cts == null)
+            {
+                throw new InvalidOperationException("CancellationTokenSource is not initialized.");
+            }
+
+            await _stream!.WriteAsync(new ReadOnlyMemory<byte>(data), _cts.Token);
         }
 
         private bool IsStreamWritable()
@@ -107,7 +112,6 @@ namespace NetSdrClientApp.Networking
             _cts?.Dispose();
             _stream?.Close();
             _tcpClient?.Close();
-
             _cts = null;
             _tcpClient = null;
             _stream = null;
@@ -115,20 +119,22 @@ namespace NetSdrClientApp.Networking
 
         private async Task StartListeningAsync()
         {
-            if (!Connected || _stream == null || !_stream.CanRead)
+            // ✅ Додаємо явну перевірку та ранній вихід
+            if (!Connected || _stream == null || !_stream.CanRead || _cts == null)
             {
-                throw new InvalidOperationException("Not connected to a server.");
+                throw new InvalidOperationException("Not connected to a server or CancellationTokenSource is not initialized.");
             }
 
             try
             {
                 Console.WriteLine($"Starting listening for incoming messages.");
-
-                while (!(_cts?.Token.IsCancellationRequested ?? true))
+                
+                // ✅ Тепер можемо безпечно використовувати _cts без null-conditional операторів
+                while (!_cts.Token.IsCancellationRequested)
                 {
                     byte[] buffer = new byte[8194];
+                    int bytesRead = await _stream.ReadAsync(new Memory<byte>(buffer), _cts.Token);
 
-                    int bytesRead = await _stream.ReadAsync(new Memory<byte>(buffer), _cts?.Token ?? CancellationToken.None);
                     if (bytesRead > 0)
                     {
                         MessageReceived?.Invoke(this, buffer.AsSpan(0, bytesRead).ToArray());
