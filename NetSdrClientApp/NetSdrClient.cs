@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using static NetSdrClientApp.Messages.NetSdrMessageHelper;
 using System.IO; 
 
+
 namespace NetSdrClientApp
 {
     public class NetSdrClient
