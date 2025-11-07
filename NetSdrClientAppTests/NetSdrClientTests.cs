@@ -184,19 +184,45 @@ public class NetSdrClientTests
         _updMock.Verify(udp => udp.StopListening(), Times.Once);
     }
 
-    // Новий тест: перевірка обробки UDP повідомлень
+    // Виправлений тест: перевірка обробки UDP повідомлень з валідними даними
     [Test]
     public void UdpMessageReceivedTest()
     {
         //Arrange
-        var testData = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        // Створюємо мінімальне валідне UDP повідомлення з заголовком
+        // Header: 2 bytes length + 2 bytes message type + тіло
+        var testData = new byte[] 
+        { 
+            0x08, 0x00,  // Length (8 bytes total)
+            0x84, 0x00,  // Message type (UDP data message)
+            0x01, 0x02, 0x03, 0x04  // Body data (4 bytes)
+        };
 
         //act
         _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, testData);
 
         //assert
         // Перевіряємо що подія була оброблена без винятків
-        // (файл samples.bin буде створено/доповнено в реальному коді)
         Assert.Pass("UDP message handled without exception");
+    }
+
+    // Додатковий тест: перевірка обробки порожнього UDP body
+    [Test]
+    public void UdpMessageReceivedEmptyBodyTest()
+    {
+        //Arrange
+        // UDP повідомлення з порожнім body
+        var testData = new byte[] 
+        { 
+            0x04, 0x00,  // Length (4 bytes - тільки заголовок)
+            0x84, 0x00   // Message type
+        };
+
+        //act & assert
+        // Перевіряємо що не викидається виняток при порожньому body
+        Assert.DoesNotThrow(() => 
+        {
+            _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, testData);
+        });
     }
 }
