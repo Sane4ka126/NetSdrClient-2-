@@ -60,6 +60,18 @@ public class NetSdrClientTests
     }
 
     [Test]
+    public async Task DisconnectTest()
+    {
+        //Arrange 
+        await ArrangeConnectedClient();
+        //act
+        _client.Disconect();
+        //assert
+        //No exception thrown
+        _tcpMock.Verify(tcp => tcp.Disconnect(), Times.Once);
+    }
+
+    [Test]
     public async Task StartIQNoConnectionTest()
     {
         //act
@@ -108,6 +120,76 @@ public class NetSdrClientTests
         _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
     }
 
+    // Новий тест: перевірка успішної зміни частоти
+    [Test]
+    public async Task ChangeFrequencyTest()
+    {
+        //Arrange
+        await ArrangeConnectedClient();
+        long frequency = 145500000; // 145.5 MHz
+        int channel = 1;
+
+        //act
+        await _client.ChangeFrequencyAsync(frequency, channel);
+
+        //assert
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Exactly(4)); // 3 від Connect + 1 від ChangeFrequency
+    }
+
+    // Новий тест: перевірка зміни частоти з різними каналами
+    [Test]
+    public async Task ChangeFrequencyMultipleChannelsTest()
+    {
+        //Arrange
+        await ArrangeConnectedClient();
+
+        //act
+        await _client.ChangeFrequencyAsync(145000000, 0);
+        await _client.ChangeFrequencyAsync(146000000, 1);
+        await _client.ChangeFrequencyAsync(147000000, 2);
+
+        //assert
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Exactly(6)); // 3 від Connect + 3 від ChangeFrequency
+    }
+
+    // Новий тест: перевірка що Connect не викликається повторно якщо вже підключено
+    [Test]
+    public async Task ConnectAsyncWhenAlreadyConnectedTest()
+    {
+        //Arrange
+        await _client.ConnectAsync();
+        _tcpMock.Invocations.Clear(); // Очищаємо історію викликів
+
+        //act
+        await _client.ConnectAsync();
+
+        //assert
+        _tcpMock.Verify(tcp => tcp.Connect(), Times.Never);
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
+    }
+
+    // Новий тест: перевірка послідовності Start -> Stop -> Start
+    [Test]
+    public async Task StartStopStartIQSequenceTest()
+    {
+        //Arrange
+        await ArrangeConnectedClient();
+
+        //act
+        await _client.StartIQAsync();
+        Assert.That(_client.IQStarted, Is.True);
+
+        await _client.StopIQAsync();
+        Assert.That(_client.IQStarted, Is.False);
+
+        await _client.StartIQAsync();
+        Assert.That(_client.IQStarted, Is.True);
+
+        //assert
+        _updMock.Verify(udp => udp.StartListeningAsync(), Times.Exactly(2));
+        _updMock.Verify(udp => udp.StopListening(), Times.Once);
+    }
+
     // Виправлений тест: перевірка обробки UDP повідомлень з валідними даними
     [Test]
     public void UdpMessageReceivedTest()
@@ -128,5 +210,25 @@ public class NetSdrClientTests
         //assert
         // Перевіряємо що подія була оброблена без винятків
         Assert.Pass("UDP message handled without exception");
+    }
+
+    // Додатковий тест: перевірка обробки порожнього UDP body
+    [Test]
+    public void UdpMessageReceivedEmptyBodyTest()
+    {
+        //Arrange
+        // UDP повідомлення з порожнім body
+        var testData = new byte[] 
+        { 
+            0x04, 0x00,  // Length (4 bytes - тільки заголовок)
+            0x84, 0x00   // Message type
+        };
+
+        //act & assert
+        // Перевіряємо що не викидається виняток при порожньому body
+        Assert.DoesNotThrow(() => 
+        {
+            _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, testData);
+        });
     }
 }
