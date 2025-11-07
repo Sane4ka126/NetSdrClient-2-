@@ -33,6 +33,12 @@ public class NetSdrClientTests
         _client = new NetSdrClient(_tcpMock.Object, _updMock.Object);
     }
 
+    // Helper метод для підготовки підключеного клієнта
+    private async Task ArrangeConnectedClient()
+    {
+        await _client.ConnectAsync();
+    }
+
     [Test]
     public async Task ConnectAsyncTest()
     {
@@ -44,7 +50,7 @@ public class NetSdrClientTests
     }
 
     [Test]
-    public async Task DisconnectWithNoConnectionTest()
+    public void DisconnectWithNoConnectionTest()
     {
         //act
         _client.Disconect();
@@ -57,7 +63,7 @@ public class NetSdrClientTests
     public async Task DisconnectTest()
     {
         //Arrange 
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
         //act
         _client.Disconect();
         //assert
@@ -80,7 +86,7 @@ public class NetSdrClientTests
     public async Task StartIQTest()
     {
         //Arrange 
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
         //act
         await _client.StartIQAsync();
         //assert
@@ -93,7 +99,7 @@ public class NetSdrClientTests
     public async Task StopIQTest()
     {
         //Arrange 
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
         //act
         await _client.StopIQAsync();
         //assert
@@ -119,7 +125,7 @@ public class NetSdrClientTests
     public async Task ChangeFrequencyTest()
     {
         //Arrange
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
         long frequency = 145500000; // 145.5 MHz
         int channel = 1;
 
@@ -135,7 +141,7 @@ public class NetSdrClientTests
     public async Task ChangeFrequencyMultipleChannelsTest()
     {
         //Arrange
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
 
         //act
         await _client.ChangeFrequencyAsync(145000000, 0);
@@ -167,7 +173,7 @@ public class NetSdrClientTests
     public async Task StartStopStartIQSequenceTest()
     {
         //Arrange
-        await ConnectAsyncTest();
+        await ArrangeConnectedClient();
 
         //act
         await _client.StartIQAsync();
