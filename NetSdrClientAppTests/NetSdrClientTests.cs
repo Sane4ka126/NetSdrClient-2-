@@ -12,6 +12,7 @@ public class NetSdrClientTests
 
     public NetSdrClientTests() { }
 
+    
     [SetUp]
     public void Setup()
     {
