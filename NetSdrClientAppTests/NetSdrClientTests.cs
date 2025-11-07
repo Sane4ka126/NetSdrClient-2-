@@ -115,5 +115,6 @@ public class NetSdrClientTests
         Assert.That(_client.IQStarted, Is.False);
     }
 
+    
     //TODO: cover the rest of the NetSdrClient code here
 }
